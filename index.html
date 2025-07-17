@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Help Desk</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top for better content flow */
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 900px;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-weight: 600;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+        .message-box.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message-box.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .message-box.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .message-box button {
+            background: none;
+            border: none;
+            font-size: 1.2em;
+            cursor: pointer;
+            color: inherit;
+            padding: 0 5px;
+        }
+        .message-box button:hover {
+            opacity: 0.8;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            body {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-4xl font-bold text-gray-800 text-center mb-6">🛎️ Virtual Help Desk</h1>
+
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <div class="flex items-center gap-2">
+                <span class="text-gray-600 font-medium">User ID:</span>
+                <span id="userIdDisplay" class="font-mono text-sm bg-gray-100 px-3 py-1 rounded-md text-gray-700 break-all">Loading...</span>
+            </div>
+            <button id="adminModeToggle" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                Toggle Admin Mode (OFF)
+            </button>
+        </div>
+
+        <!-- Question Submission Form -->
+        <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Ask a New Question</h2>
+            <textarea id="questionInput" class="w-full p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 resize-y min-h-[80px]" placeholder="Type your question here..."></textarea>
+            <button id="submitQuestionBtn" class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                Submit Question
+            </button>
+        </div>
+
+        <!-- Questions List -->
+        <div class="mt-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4" id="questionsListTitle">Your Questions</h2>
+            <div id="questionsList" class="space-y-4">
+                <!-- Questions will be loaded here -->
+                <p id="noQuestionsMessage" class="text-gray-500 text-center py-8">No questions submitted yet.</p>
+            </div>
+        </div>
+
+        <!-- Question Detail / Chat Thread (Initially hidden) -->
+        <div id="questionDetailSection" class="hidden bg-white p-6 rounded-lg shadow-lg border border-gray-200 mt-8">
+            <button id="backToListBtn" class="mb-4 text-indigo-600 hover:text-indigo-800 font-medium flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                Back to Questions
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-2" id="detailQuestionText"></h3>
+            <p class="text-sm text-gray-500 mb-4">Status: <span id="detailQuestionStatus" class="font-semibold"></span></p>
+
+            <div id="messagesContainer" class="bg-gray-50 p-4 rounded-lg h-80 overflow-y-auto mb-4 border border-gray-200 flex flex-col-reverse">
+                <!-- Messages will be loaded here -->
+            </div>
+
+            <div class="flex gap-2">
+                <textarea id="replyInput" class="flex-grow p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 resize-y min-h-[50px]" placeholder="Type your reply..."></textarea>
+                <button id="sendReplyBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    Send
+                </button>
+            </div>
+            <button id="resolveQuestionBtn" class="mt-4 w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                Mark as Resolved
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Message Box -->
+    <div id="messageBox" class="message-box">
+        <span id="messageBoxText"></span>
+        <button onclick="document.getElementById('messageBox').style.display = 'none';">&times;</button>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase instances
+        let app, db, auth;
+        let currentUserId = null;
+        let isAdminMode = false;
+        let selectedQuestionId = null; // To keep track of the currently viewed question
+        let appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Moved to global scope
+
+        // References to DOM elements
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const adminModeToggle = document.getElementById('adminModeToggle');
+        const questionInput = document.getElementById('questionInput');
+        const submitQuestionBtn = document.getElementById('submitQuestionBtn');
+        const questionsList = document.getElementById('questionsList');
+        const noQuestionsMessage = document.getElementById('noQuestionsMessage');
+        const questionsListTitle = document.getElementById('questionsListTitle');
+
+        const questionDetailSection = document.getElementById('questionDetailSection');
+        const backToListBtn = document.getElementById('backToListBtn');
+        const detailQuestionText = document.getElementById('detailQuestionText');
+        const detailQuestionStatus = document.getElementById('detailQuestionStatus');
+        const messagesContainer = document.getElementById('messagesContainer');
+        const replyInput = document.getElementById('replyInput');
+        const sendReplyBtn = document.getElementById('sendReplyBtn');
+        const resolveQuestionBtn = document.getElementById('resolveQuestionBtn');
+
+        const messageBox = document.getElementById('messageBox');
+        const messageBoxText = document.getElementById('messageBoxText');
+
+        /**
+         * Displays a custom message box.
+         * @param {string} message - The message to display.
+         * @param {'success'|'error'|'info'} type - The type of message (for styling).
+         * @param {function} [callback] - Optional callback function to execute when the message box is closed.
+         */
+        function showMessageBox(message, type, callback = null) {
+            messageBoxText.textContent = message;
+            messageBox.className = `message-box ${type}`; // Reset classes and add new type
+            messageBox.style.display = 'flex'; // Show the box
+
+            // Automatically hide after 3 seconds
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+                if (callback) callback();
+            }, 3000);
+        }
+
+        /**
+         * Initializes Firebase and authenticates the user.
+         */
+        async function initializeFirebase() {
+            try {
+                // Retrieve Firebase config and app ID from global variables
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Authenticate user
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Listen for auth state changes to get the current user ID
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUserId = user.uid;
+                        userIdDisplay.textContent = currentUserId;
+                        console.log("User authenticated:", currentUserId);
+                        listenForQuestions(); // Start listening for questions once authenticated
+                    } else {
+                        currentUserId = null;
+                        userIdDisplay.textContent = 'Not Authenticated';
+                        console.log("User not authenticated.");
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                showMessageBox("Failed to initialize app. Please try again.", 'error');
+            }
+        }
+
+        /**
+         * Renders the list of questions in the UI.
+         * @param {Array<Object>} questions - An array of question objects from Firestore.
+         */
+        function renderQuestions(questions) {
+            questionsList.innerHTML = ''; // Clear existing list
+
+            if (questions.length === 0) {
+                noQuestionsMessage.style.display = 'block';
+                return;
+            } else {
+                noQuestionsMessage.style.display = 'none';
+            }
+
+            questions.forEach(q => {
+                const questionCard = document.createElement('div');
+                questionCard.className = `bg-white p-5 rounded-lg shadow-md border ${q.status === 'Resolved' ? 'border-green-300' : 'border-blue-300'} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3`;
+                questionCard.innerHTML = `
+                    <div class="flex-grow">
+                        <p class="text-lg font-semibold text-gray-800">${q.question}</p>
+                        <p class="text-sm text-gray-600">Status: <span class="font-medium ${q.status === 'Resolved' ? 'text-green-600' : 'text-blue-600'}">${q.status}</span></p>
+                        <p class="text-xs text-gray-500">Submitted by: ${q.userId === currentUserId ? 'You' : q.userId.substring(0, 8) + '...'}</p>
+                        <p class="text-xs text-gray-500">On: ${new Date(q.timestamp.toDate()).toLocaleString()}</p>
+                    </div>
+                    <button data-id="${q.id}" class="view-thread-btn bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-md transition duration-300 ease-in-out transform hover:scale-105">
+                        View Thread
+                    </button>
+                `;
+                questionsList.appendChild(questionCard);
+            });
+
+            // Add event listeners to "View Thread" buttons
+            document.querySelectorAll('.view-thread-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const questionId = event.target.dataset.id;
+                    viewQuestionDetail(questionId);
+                });
+            });
+        }
+
+        /**
+         * Renders the messages for a specific question's thread.
+         * @param {Array<Object>} messages - An array of message objects.
+         */
+        function renderMessages(messages) {
+            messagesContainer.innerHTML = ''; // Clear existing messages
+            if (!messages || messages.length === 0) {
+                messagesContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No messages in this thread yet.</p>';
+                return;
+            }
+
+            // Sort messages by timestamp in ascending order for correct display
+            messages.sort((a, b) => a.timestamp.toDate() - b.timestamp.toDate());
+
+            messages.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                const isUser = msg.senderId === currentUserId;
+                const isAdminReply = msg.senderType === 'admin';
+
+                messageDiv.className = `p-3 rounded-lg max-w-[80%] mb-2 ${isUser ? 'bg-blue-100 self-end text-right' : 'bg-gray-100 self-start text-left'} ${isAdminReply ? 'border-l-4 border-purple-500' : ''}`;
+                messageDiv.innerHTML = `
+                    <p class="font-medium ${isUser ? 'text-blue-800' : 'text-gray-800'}">${isUser ? 'You' : (isAdminReply ? 'Admin' : 'User ' + msg.senderId.substring(0, 8) + '...')}</p>
+                    <p class="text-gray-700">${msg.text}</p>
+                    <p class="text-xs text-gray-500 mt-1">${new Date(msg.timestamp.toDate()).toLocaleString()}</p>
+                `;
+                messagesContainer.prepend(messageDiv); // Prepend to show latest at bottom (due to flex-col-reverse)
+            });
+            messagesContainer.scrollTop = messagesContainer.scrollHeight; // Scroll to bottom
+        }
+
+        /**
+         * Switches to the question detail view and loads the thread.
+         * @param {string} questionId - The ID of the question to view.
+         */
+        async function viewQuestionDetail(questionId) {
+            selectedQuestionId = questionId;
+            document.getElementById('questionDetailSection').classList.remove('hidden');
+            document.getElementById('questionDetailSection').classList.add('flex'); // Use flex for column layout
+            document.getElementById('questionDetailSection').style.flexDirection = 'column'; // Ensure column direction
+            document.getElementById('questionDetailSection').style.display = 'flex'; // Ensure display flex
+            document.getElementById('questionDetailSection').style.gap = '16px'; // Add gap for spacing
+
+            document.getElementById('questionInput').closest('div').classList.add('hidden'); // Hide submission form
+            document.getElementById('questionsList').closest('div').classList.add('hidden'); // Hide list
+
+            try {
+                const qDocRef = doc(db, `artifacts/${appId}/public/data/questions`, questionId);
+                const qDocSnap = await getDoc(qDocRef);
+
+                if (qDocSnap.exists()) {
+                    const questionData = qDocSnap.data();
+                    detailQuestionText.textContent = questionData.question;
+                    detailQuestionStatus.textContent = questionData.status;
+                    detailQuestionStatus.className = `font-semibold ${questionData.status === 'Resolved' ? 'text-green-600' : 'text-blue-600'}`;
+
+                    // Update resolve button text based on status and admin mode
+                    if (isAdminMode) {
+                        resolveQuestionBtn.textContent = questionData.status === 'Resolved' ? 'Mark as Open' : 'Mark as Resolved';
+                        resolveQuestionBtn.classList.remove('hidden');
+                    } else {
+                        resolveQuestionBtn.classList.add('hidden');
+                    }
+
+                    // Listen for real-time updates to the specific question's messages
+                    onSnapshot(qDocRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            const updatedQuestionData = docSnap.data();
+                            detailQuestionStatus.textContent = updatedQuestionData.status;
+                            detailQuestionStatus.className = `font-semibold ${updatedQuestionData.status === 'Resolved' ? 'text-green-600' : 'text-blue-600'}`;
+                            renderMessages(updatedQuestionData.messages || []);
+
+                            if (isAdminMode) {
+                                resolveQuestionBtn.textContent = updatedQuestionData.status === 'Resolved' ? 'Mark as Open' : 'Mark as Resolved';
+                            }
+                        } else {
+                            console.log("No such document!");
+                            showMessageBox("Question not found or deleted.", 'error');
+                            backToQuestionsList();
+                        }
+                    });
+
+                } else {
+                    showMessageBox("Question not found.", 'error');
+                    backToQuestionsList();
+                }
+            } catch (error) {
+                console.error("Error viewing question detail:", error);
+                showMessageBox("Failed to load question details.", 'error');
+            }
+        }
+
+        /**
+         * Switches back to the main questions list view.
+         */
+        function backToQuestionsList() {
+            selectedQuestionId = null;
+            questionDetailSection.classList.add('hidden');
+            document.getElementById('questionInput').closest('div').classList.remove('hidden');
+            document.getElementById('questionsList').closest('div').classList.remove('hidden');
+            listenForQuestions(); // Re-attach the main listener based on admin mode
+        }
+
+        /**
+         * Submits a new question to Firestore.
+         */
+        async function submitQuestion() {
+            const questionText = questionInput.value.trim();
+            if (!questionText) {
+                showMessageBox("Please enter your question.", 'info');
+                return;
+            }
+            if (!currentUserId) {
+                showMessageBox("Authentication error. Please refresh.", 'error');
+                return;
+            }
+
+            try {
+                // Add new question document to Firestore
+                const questionsColRef = collection(db, `artifacts/${appId}/public/data/questions`);
+                await addDoc(questionsColRef, {
+                    userId: currentUserId,
+                    question: questionText,
+                    status: 'Open',
+                    timestamp: serverTimestamp(),
+                    messages: [{
+                        senderId: currentUserId,
+                        senderType: 'user',
+                        text: questionText,
+                        timestamp: new Date() // Changed from serverTimestamp()
+                    }]
+                });
+                questionInput.value = ''; // Clear input
+                showMessageBox("Question submitted successfully!", 'success');
+            } catch (error) {
+                console.error("Error submitting question:", error);
+                showMessageBox("Failed to submit question. Please try again.", 'error');
+            }
+        }
+
+        /**
+         * Adds a new message to a question's thread.
+         * @param {string} questionId - The ID of the question.
+         * @param {string} messageText - The text of the message.
+         * @param {'user'|'admin'} senderType - The type of sender.
+         */
+        async function addMessage(questionId, messageText, senderType) {
+            if (!messageText) {
+                showMessageBox("Please enter a message.", 'info');
+                return;
+            }
+            if (!currentUserId) {
+                showMessageBox("Authentication error. Please refresh.", 'error');
+                return;
+            }
+
+            try {
+                const qDocRef = doc(db, `artifacts/${appId}/public/data/questions`, questionId);
+                const qDocSnap = await getDoc(qDocRef);
+
+                if (qDocSnap.exists()) {
+                    const currentMessages = qDocSnap.data().messages || [];
+                    const newMessage = {
+                        senderId: currentUserId,
+                        senderType: senderType,
+                        text: messageText,
+                        timestamp: new Date() // Changed from serverTimestamp()
+                    };
+                    await updateDoc(qDocRef, {
+                        messages: [...currentMessages, newMessage]
+                    });
+                    replyInput.value = ''; // Clear reply input
+                } else {
+                    showMessageBox("Question not found to add message.", 'error');
+                }
+            } catch (error) {
+                console.error("Error adding message:", error);
+                showMessageBox("Failed to send message. Please try again.", 'error');
+            }
+        }
+
+        /**
+         * Toggles the status of a question between 'Open' and 'Resolved'.
+         * @param {string} questionId - The ID of the question.
+         */
+        async function toggleQuestionStatus(questionId) {
+            if (!isAdminMode) {
+                showMessageBox("You must be in Admin Mode to change status.", 'info');
+                return;
+            }
+            try {
+                const qDocRef = doc(db, `artifacts/${appId}/public/data/questions`, questionId);
+                const qDocSnap = await getDoc(qDocRef);
+
+                if (qDocSnap.exists()) {
+                    const currentStatus = qDocSnap.data().status;
+                    const newStatus = currentStatus === 'Resolved' ? 'Open' : 'Resolved';
+                    await updateDoc(qDocRef, {
+                        status: newStatus
+                    });
+                    showMessageBox(`Question status updated to '${newStatus}'!`, 'success');
+                } else {
+                    showMessageBox("Question not found to update status.", 'error');
+                }
+            } catch (error) {
+                console.error("Error updating question status:", error);
+                showMessageBox("Failed to update status. Please try again.", 'error');
+            }
+        }
+
+        /**
+         * Sets up a real-time listener for questions based on the current mode (user/admin).
+         */
+        function listenForQuestions() {
+            if (!db || !currentUserId) {
+                console.warn("Firestore or User ID not ready for listening.");
+                return;
+            }
+
+            const questionsColRef = collection(db, `artifacts/${appId}/public/data/questions`);
+            let q;
+
+            if (isAdminMode) {
+                // Admin sees all questions
+                questionsListTitle.textContent = "All Questions (Admin View)";
+                q = query(questionsColRef); // Removed orderBy
+            } else {
+                // User sees only their own questions
+                questionsListTitle.textContent = "Your Questions";
+                q = query(questionsColRef, where('userId', '==', currentUserId)); // Removed orderBy
+            }
+
+            onSnapshot(q, (snapshot) => {
+                let questions = []; // Use let for sorting
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.timestamp) {
+                        questions.push({ id: doc.id, ...data });
+                    } else {
+                        // Handle documents without serverTimestamp yet (e.g., just added)
+                        questions.push({ id: doc.id, ...data, timestamp: { toDate: () => new Date() } });
+                    }
+                });
+
+                // Sort questions in memory by timestamp descending
+                questions.sort((a, b) => {
+                    const dateA = a.timestamp && a.timestamp.toDate ? a.timestamp.toDate() : new Date(0);
+                    const dateB = b.timestamp && b.timestamp.toDate ? b.timestamp.toDate() : new Date(0);
+                    return dateB - dateA; // Descending order
+                });
+
+                renderQuestions(questions);
+            }, (error) => {
+                console.error("Error listening to questions:", error);
+                showMessageBox("Error loading questions. Please refresh.", 'error');
+            });
+        }
+
+        /**
+         * Toggles between Admin Mode and User Mode.
+         */
+        function toggleAdminMode() {
+            isAdminMode = !isAdminMode;
+            adminModeToggle.textContent = isAdminMode ? 'Toggle Admin Mode (ON)' : 'Toggle Admin Mode (OFF)';
+            adminModeToggle.classList.toggle('bg-green-600', isAdminMode);
+            adminModeToggle.classList.toggle('hover:bg-green-700', isAdminMode);
+            adminModeToggle.classList.toggle('bg-indigo-600', !isAdminMode);
+            adminModeToggle.classList.toggle('hover:bg-indigo-700', !isAdminMode);
+
+            // If currently in detail view, go back to list to re-render based on new mode
+            if (selectedQuestionId) {
+                backToQuestionsList();
+            } else {
+                listenForQuestions(); // Re-attach listener with new mode
+            }
+            showMessageBox(`Admin Mode is now ${isAdminMode ? 'ON' : 'OFF'}.`, 'info');
+        }
+
+        // --- Event Listeners ---
+        submitQuestionBtn.addEventListener('click', submitQuestion);
+        adminModeToggle.addEventListener('click', toggleAdminMode);
+        backToListBtn.addEventListener('click', backToQuestionsList);
+
+        sendReplyBtn.addEventListener('click', () => {
+            if (selectedQuestionId) {
+                const replyText = replyInput.value.trim();
+                const senderType = isAdminMode ? 'admin' : 'user';
+                addMessage(selectedQuestionId, replyText, senderType);
+            }
+        });
+
+        resolveQuestionBtn.addEventListener('click', () => {
+            if (selectedQuestionId) {
+                toggleQuestionStatus(selectedQuestionId);
+            }
+        });
+
+        // Initialize Firebase when the window loads
+        window.onload = initializeFirebase;
+    </script>
+</body>
+</html>
